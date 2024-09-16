@@ -1,19 +1,23 @@
+
+import sys
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QApplication, QWidget, QGridLayout, QLabel, QLineEdit, QPushButton, QMessageBox, \
     QTableWidget, QTableWidgetItem
 import sqlite3
 
-
 def creerTableCarnetAdress():
-    print("Créer la table")
-    conn = sqlite3.connect("carnetAdress.db")
-    cursor = conn.cursor()
-    req = "CREATE TABLE IF NOT EXISTS contacts (id INTEGER PRIMARY KEY AUTOINCREMENT, nom TEXT NOT NULL, prenom TEXT NOT NULL, telephone TEXT NOT NULL, mail TEXT NOT NULL)"
-    cursor.execute(req)
-    conn.commit()
-    conn.close()
-    print("La base de données et la table ont été créées avec succès.")
+    connexion = sqlite3.connect('carnetAdress.db')
+    cursor = connexion.cursor()
 
+    # Requête SQL pour créer la table si elle n'existe pas déjà
+    req = """
+    CREATE TABLE IF NOT EXISTS contacts ( id INTEGER PRIMARY KEY AUTOINCREMENT, nom TEXT, prenom TEXT, telephone TEXT, mail TEXT )"""
+    cursor.execute(req)
+    connexion.commit()
+    connexion.close()
+
+    # Message pour informer que la table a été créée ou existe déjà
+    print("Table 'contacts' créée ou déjà existante.")
 
 def ajouterContact():
     nom = lineEditNom.text()
@@ -42,13 +46,26 @@ def ajouterContact():
         chargerContacts()
     else:
         QMessageBox.warning(fen, "Erreur", "Veuillez remplir tous les champs.")
+
 def chargerContacts():
-    conn = sqlite3.connect("carnetAdress.db")
-    cursor = conn.cursor()
-    req = "SELECT * FROM contacts"
-    cursor.execute(req)
-    contacts = cursor.fetchall()
-    conn.close()
+    contacts = []
+
+    try:
+        conn = sqlite3.connect("carnetAdress.db")
+        cursor = conn.cursor()
+
+        # Requête pour récupérer les contacts
+        req = "SELECT * FROM contacts"
+        cursor.execute(req)
+        contacts = cursor.fetchall()
+
+    except sqlite3.Error as e:
+        print(f"Erreur lors de la connexion ou de l'exécution de la requête : {e}")
+    finally:
+        conn.close()
+
+    # Vider le contenu existant dans le tableau
+    tableWidget.clearContents()
 
     # Ajuster pour 5 colonnes : 1 pour l'ID (cachée) et 4 pour les autres champs
     tableWidget.setRowCount(len(contacts))
@@ -58,18 +75,31 @@ def chargerContacts():
     for row_idx, contact in enumerate(contacts):
         for col_idx, data in enumerate(contact):
             item = QTableWidgetItem(str(data))
-            if col_idx == 0:  # Si c'est l'ID, on le cache
-                item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)  # Rendre non modifiable
-                tableWidget.setColumnHidden(0, True)  # Cacher la colonne
-            tableWidget.setItem(row_idx, col_idx, item)
+
+            if col_idx == 0:  # Si c'est l'ID, on le cache et on le rend non modifiable
+                item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                tableWidget.setItem(row_idx, col_idx, item)
+            else:
+                tableWidget.setItem(row_idx, col_idx, item)
+
+    # Cacher la colonne ID
+    tableWidget.setColumnHidden(0, True)
+
 def remplirChampsAvecSelection():
     selected_row = tableWidget.currentRow()
+
     if selected_row != -1:
-        # Récupérer les informations de la ligne sélectionnée et les mettre dans les champs
+        # Remplir les champs avec les données de la ligne sélectionnée
         lineEditNom.setText(tableWidget.item(selected_row, 1).text())
         lineEditPrenom.setText(tableWidget.item(selected_row, 2).text())
         lineEditTelephone.setText(tableWidget.item(selected_row, 3).text())
         lineEditMail.setText(tableWidget.item(selected_row, 4).text())
+    else:
+        # Réinitialiser les champs s'il n'y a pas de sélection
+        lineEditNom.clear()
+        lineEditPrenom.clear()
+        lineEditTelephone.clear()
+        lineEditMail.clear()
 
 def modifierContact():
     selected_row = tableWidget.currentRow()
@@ -121,7 +151,7 @@ def supprimerContact():
     else:
         QMessageBox.warning(fen, "Erreur", "Veuillez sélectionner un contact à supprimer.")
 
-app = QApplication([])
+app = QApplication(sys.argv)
 fen = QWidget()
 fen.setWindowTitle("CARNET D'ADRESSE")
 fen.setGeometry(0, 0, 800, 600)
@@ -177,9 +207,6 @@ fen.setStyleSheet("""
 grid = QGridLayout(fen)
 fen.setLayout(grid)
 
-#grid.setContentsMargins(10, 10, 10, 10)
-#grid.setSpacing(10)
-
 labelNom = QLabel("Nom")
 labelPrenom = QLabel("Prénom")
 labelTelefone = QLabel("Téléphone")
@@ -200,7 +227,7 @@ grid.addWidget(lineEditTelephone, 1, 2)
 grid.addWidget(labelMail, 0, 3)
 grid.addWidget(lineEditMail, 1, 3)
 
-# Créer et ajouter le bouton "Ajouter"
+# Créer et ajouter les boutons
 buttonAjouter = QPushButton("Ajouter")
 grid.addWidget(buttonAjouter, 2, 0)
 
@@ -209,20 +236,22 @@ grid.addWidget(buttonModifier, 2, 1)
 
 buttonSupprimer = QPushButton("Supprimer")
 grid.addWidget(buttonSupprimer, 2, 2)
+
+buttonInitialiser = QPushButton("Initialiser")
+grid.addWidget(buttonInitialiser, 2, 3)
+
 # Ajouter le QTableWidget pour afficher les contacts
 tableWidget = QTableWidget()
 grid.addWidget(tableWidget, 3, 0, 1, 4)
 
-# Connecter le bouton "Ajouter" à la fonction ajouterContact
+# Connecter les boutons aux fonctions
+buttonInitialiser.clicked.connect(creerTableCarnetAdress)
 buttonAjouter.clicked.connect(ajouterContact)
 buttonModifier.clicked.connect(modifierContact)
 buttonSupprimer.clicked.connect(supprimerContact)
-
 fen.show()
-
-# Créer la table au démarrage
-creerTableCarnetAdress()
+# Connecter la sélection de ligne à la fonction de remplissage des champs
 tableWidget.itemSelectionChanged.connect(remplirChampsAvecSelection)
-# Charger les contacts au démarrage
+#Charger les contacts au démarrage
 chargerContacts()
 app.exec()
