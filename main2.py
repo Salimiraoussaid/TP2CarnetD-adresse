@@ -237,10 +237,14 @@ grid.addWidget(buttonSupprimer, 4, 2)
 tableWidget = QTableWidget()
 grid.addWidget(tableWidget, 5, 0, 1, 4)
 
+buttonInitialiser = QPushButton("Initialiser")
+grid.addWidget(buttonInitialiser, 4, 3)
+
 # Connecter le bouton "Ajouter" à la fonction ajouterContact
 buttonAjouter.clicked.connect(ajouterContact)
 buttonModifier.clicked.connect(modifierContact)
 buttonSupprimer.clicked.connect(supprimerContact)
+buttonInitialiser.clicked.connect(creerTableCarnetAdress)
 
 fen.show()
 
